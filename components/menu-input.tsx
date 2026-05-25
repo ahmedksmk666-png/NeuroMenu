@@ -46,7 +46,17 @@ export function MenuInput({ onAnalyze, isAnalyzing }: MenuInputProps) {
   }
 
   const handleAnalyze = () => {
-    const validItems = menuItems.filter((item) => item.name && item.price)
+    // Filter for valid items with both name and price, ensure price is parseable
+    const validItems = menuItems.filter((item) => {
+      if (!item || !item.name || !item.price) return false
+      const trimmedName = item.name.trim()
+      const trimmedPrice = item.price.trim()
+      if (!trimmedName || !trimmedPrice) return false
+      // Ensure price can be parsed as a number
+      const priceNum = parseFloat(trimmedPrice.replace(/[$\s]/g, ""))
+      return !isNaN(priceNum) && priceNum > 0
+    })
+    
     if (validItems.length > 0) {
       onAnalyze(validItems)
     }

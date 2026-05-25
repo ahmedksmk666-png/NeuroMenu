@@ -19,17 +19,21 @@ interface AnalyticsWidgetProps {
 }
 
 // Animated counter hook for smooth number transitions
-function useAnimatedValue(targetValue: number, duration: number = 1500) {
+function useAnimatedValue(targetValue: number | undefined | null, duration: number = 1500) {
   const [displayValue, setDisplayValue] = useState(0)
 
   useEffect(() => {
-    if (targetValue === 0) {
+    // Guard against invalid target values
+    const safeTarget = typeof targetValue === "number" && !isNaN(targetValue) ? targetValue : 0
+    
+    if (safeTarget === 0) {
       setDisplayValue(0)
       return
     }
 
     const startTime = Date.now()
     const startValue = 0
+    let animationFrameId: number
 
     const animate = () => {
       const elapsed = Date.now() - startTime
@@ -37,16 +41,23 @@ function useAnimatedValue(targetValue: number, duration: number = 1500) {
       
       // Easing function for smooth animation
       const easeOutQuart = 1 - Math.pow(1 - progress, 4)
-      const currentValue = startValue + (targetValue - startValue) * easeOutQuart
+      const currentValue = startValue + (safeTarget - startValue) * easeOutQuart
       
       setDisplayValue(currentValue)
       
       if (progress < 1) {
-        requestAnimationFrame(animate)
+        animationFrameId = requestAnimationFrame(animate)
       }
     }
 
-    requestAnimationFrame(animate)
+    animationFrameId = requestAnimationFrame(animate)
+    
+    // Cleanup function to cancel animation on unmount or value change
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+      }
+    }
   }, [targetValue, duration])
 
   return displayValue

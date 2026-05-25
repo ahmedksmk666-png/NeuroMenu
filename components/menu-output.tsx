@@ -9,7 +9,10 @@ interface MenuOutputProps {
   isAnalyzing: boolean
 }
 
-export function MenuOutput({ optimizedItems, premiumDecoy, isAnalyzing }: MenuOutputProps) {
+export function MenuOutput({ optimizedItems = [], premiumDecoy, isAnalyzing }: MenuOutputProps) {
+  // Ensure optimizedItems is always a valid array
+  const safeOptimizedItems = Array.isArray(optimizedItems) ? optimizedItems : []
+  
   if (isAnalyzing) {
     return (
       <div className="flex h-full flex-col rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5 p-6">
@@ -36,7 +39,7 @@ export function MenuOutput({ optimizedItems, premiumDecoy, isAnalyzing }: MenuOu
     )
   }
 
-  if (optimizedItems.length === 0) {
+  if (safeOptimizedItems.length === 0) {
     return (
       <div className="flex h-full flex-col rounded-xl border border-border bg-card p-6">
         <div className="mb-6">
@@ -98,7 +101,13 @@ export function MenuOutput({ optimizedItems, premiumDecoy, isAnalyzing }: MenuOu
         )}
 
         {/* Optimized Items with High Conversion Target badges */}
-        {optimizedItems.map((item, index) => (
+        {safeOptimizedItems.map((item, index) => {
+          // Skip rendering if item is invalid
+          if (!item || !item.original || !item.optimized) {
+            return null
+          }
+          
+          return (
           <div 
             key={index} 
             className="relative rounded-lg border border-primary/30 bg-card/50 p-4 animate-in fade-in slide-in-from-bottom-2"
@@ -150,7 +159,8 @@ export function MenuOutput({ optimizedItems, premiumDecoy, isAnalyzing }: MenuOu
               </span>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
