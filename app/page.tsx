@@ -50,15 +50,26 @@ const decoyNamePrefixes = [
 
 // Applies Currency Blindness & Charm Pricing:
 // Strip "$" and convert whole numbers to end in .95
-function applyCharmPricing(priceInput: string): string {
+function applyCharmPricing(priceInput: string | undefined | null): string {
+  // Guard against null/undefined input
+  if (!priceInput || typeof priceInput !== "string") {
+    return "0.95"
+  }
+  
   // Remove any $ signs and whitespace
   const cleanPrice = priceInput.replace(/[$\s]/g, "")
-  const numericPrice = parseFloat(cleanPrice) || 0
+  const numericPrice = parseFloat(cleanPrice)
+  
+  // Guard against NaN or invalid numbers
+  if (isNaN(numericPrice) || numericPrice <= 0) {
+    return "0.95"
+  }
   
   // If it's a whole number or ends in .00, apply charm pricing
   // Subtract 1 and add .95 (e.g., $15 -> 14.95, $24.00 -> 23.95)
   if (numericPrice === Math.floor(numericPrice) || cleanPrice.endsWith(".00")) {
-    return (Math.floor(numericPrice) - 1 + 0.95).toFixed(2)
+    const charmPrice = Math.floor(numericPrice) - 1 + 0.95
+    return charmPrice > 0 ? charmPrice.toFixed(2) : "0.95"
   }
   
   // For non-whole numbers, just ensure .95 ending
@@ -67,19 +78,31 @@ function applyCharmPricing(priceInput: string): string {
 
 // Generates the Premium Decoy item at 2.5x-3x the highest price
 function generatePremiumDecoy(items: MenuItem[]): PremiumDecoy | null {
-  if (items.length === 0) return null
+  // Guard against empty or invalid items array
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return null
+  }
   
-  // Find the most expensive item
+  // Find the most expensive item with safe parsing
   let maxPrice = 0
-  let mostExpensiveItem = items[0]
+  let mostExpensiveItem: MenuItem | null = null
   
-  items.forEach((item) => {
-    const price = parseFloat(item.price.replace(/[$\s]/g, "")) || 0
-    if (price > maxPrice) {
+  for (const item of items) {
+    if (!item || !item.price) continue
+    
+    const priceStr = String(item.price).replace(/[$\s]/g, "")
+    const price = parseFloat(priceStr)
+    
+    if (!isNaN(price) && price > maxPrice) {
       maxPrice = price
       mostExpensiveItem = item
     }
-  })
+  }
+  
+  // If no valid item found, return null
+  if (!mostExpensiveItem || maxPrice <= 0) {
+    return null
+  }
   
   // Calculate decoy price: random between 2.5x and 3x
   const multiplier = 2.5 + Math.random() * 0.5 // 2.5 to 3.0
@@ -94,7 +117,7 @@ function generatePremiumDecoy(items: MenuItem[]): PremiumDecoy | null {
   return {
     name: prefix,
     price: charmDecoyPrice,
-    basedOn: mostExpensiveItem.name,
+    basedOn: mostExpensiveItem.name || "Menu Item",
   }
 }
 
@@ -110,29 +133,36 @@ function generateAnalytics(): AnalyticsData {
 
 // Main optimization function implementing psychological pricing rules
 function optimizeMenu(items: MenuItem[]): OptimizedItem[] {
+  // Guard against invalid input
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return []
+  }
+  
   const techniques = [
     "Currency Blindness + Charm Pricing",
     "Anchoring Effect",
     "Price Decoy Adjacency",
   ]
 
-  return items.map((item, index) => {
-    const originalPrice = item.price.replace(/[$\s]/g, "")
-    const optimizedPrice = applyCharmPricing(item.price)
-    
-    return {
-      original: {
-        name: item.name,
-        price: originalPrice,
-      },
-      optimized: {
-        name: item.name,
-        price: optimizedPrice,
-      },
-      technique: techniques[index % techniques.length],
-      isHighConversion: true, // All optimized items are high conversion targets
-    }
-  })
+  return items
+    .filter((item) => item && item.name && item.price) // Filter out invalid items
+    .map((item, index) => {
+      const originalPrice = String(item.price).replace(/[$\s]/g, "") || "0"
+      const optimizedPrice = applyCharmPricing(item.price)
+      
+      return {
+        original: {
+          name: item.name || "Unknown Item",
+          price: originalPrice,
+        },
+        optimized: {
+          name: item.name || "Unknown Item",
+          price: optimizedPrice,
+        },
+        technique: techniques[index % techniques.length],
+        isHighConversion: true, // All optimized items are high conversion targets
+      }
+    })
 }
 
 export default function NeuroMenuDashboard() {
@@ -142,6 +172,11 @@ export default function NeuroMenuDashboard() {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
 
   const handleAnalyze = (items: MenuItem[]) => {
+    // Guard against invalid input
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return
+    }
+    
     setIsAnalyzing(true)
     setOptimizedItems([])
     setPremiumDecoy(null)
@@ -149,14 +184,23 @@ export default function NeuroMenuDashboard() {
 
     // Simulate AI processing time with "Applying Behavioral Models..." state
     setTimeout(() => {
-      const optimized = optimizeMenu(items)
-      const decoy = generatePremiumDecoy(items)
-      const analytics = generateAnalytics()
-      
-      setOptimizedItems(optimized)
-      setPremiumDecoy(decoy)
-      setAnalyticsData(analytics)
-      setIsAnalyzing(false)
+      try {
+        const optimized = optimizeMenu(items)
+        const decoy = generatePremiumDecoy(items)
+        const analytics = generateAnalytics()
+        
+        setOptimizedItems(optimized)
+        setPremiumDecoy(decoy)
+        setAnalyticsData(analytics)
+      } catch (error) {
+        console.error("[v0] Error during menu optimization:", error)
+        // Reset to safe state on error
+        setOptimizedItems([])
+        setPremiumDecoy(null)
+        setAnalyticsData(null)
+      } finally {
+        setIsAnalyzing(false)
+      }
     }, 2500)
   }
 
